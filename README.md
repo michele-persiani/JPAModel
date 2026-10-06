@@ -14,8 +14,7 @@ public class User extends BaseEntity
 }
 
 
-User youngest = JPAModel.getInstance()
+List<User> users = JPAModel.getInstance()
         .getEntityController(User.class)
-        .decorated(UserEntityController.class)
-        .getYoungest();
+        .getAllEntities();
 ```

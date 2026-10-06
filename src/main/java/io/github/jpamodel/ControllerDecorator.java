@@ -4,11 +4,11 @@ package io.github.jpamodel;
 import java.util.List;
 import java.util.Optional;
 
-public class EntityControllerDecorator<T extends BaseEntity> implements EntityController<T>
+public class ControllerDecorator<T extends BaseEntity> implements EntityController<T>
 {
     private final EntityController<T> controller;
 
-    public EntityControllerDecorator(EntityController<T> controller)
+    public ControllerDecorator(EntityController<T> controller)
     {
         this.controller = controller;
     }
@@ -44,20 +44,8 @@ public class EntityControllerDecorator<T extends BaseEntity> implements EntityCo
     }
 
     @Override
-    public void putEntity(T entity)
-    {
-        controller.putEntity(entity);
-    }
-
-    @Override
     public T getEntity(Object id)
     {
         return controller.getEntity(id);
-    }
-
-    @Override
-    public <C extends EntityController<T>> C decorated(Class<C> decorator, Object... args)
-    {
-        return controller.decorated(decorator, args);
     }
 }

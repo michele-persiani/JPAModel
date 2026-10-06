@@ -1,13 +1,18 @@
-import io.github.jpamodel.JPAModel;
+import io.github.jpamodel.Model;
+
+import java.util.List;
 
 
 public class Main
 {
     public static void main(String[] args)
     {
-        User youngest = JPAModel.getInstance()
-                .getEntityController(User.class)
-                .decorated(UserEntityController.class)
-                .getYoungest();
+        House house = new House();
+        house.setPrice(1000000);
+
+        Model.getInstance().getController(House.class).insertEntity(house);
+
+        List<House> houses = Model.getInstance().getController(House.class).getAllEntities();
+
     }
 }

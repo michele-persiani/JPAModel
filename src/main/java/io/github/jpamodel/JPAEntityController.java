@@ -10,63 +10,46 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 
-public class JPAEntityController<T extends BaseEntity> implements EntityController<T>
+public class JPAEntityController<T> implements EntityController<T>
 {
-    private final String persistenceUnit;
     private final Class<T> entityClass;
-    private final EntityManagerFactory entitymanagerFactory;
+    private final EntityManager entityManager;
 
     private final Logger logger = Logger.getLogger(getClass().getName());
 
-    public JPAEntityController(Class<T> entityClass, String persistenceUnit)
+    public JPAEntityController(Class<T> entityClass, EntityManager entityManager)
     {
         this.entityClass = entityClass;
-        this.persistenceUnit = persistenceUnit;
-        this.entitymanagerFactory = Persistence.createEntityManagerFactory(this.persistenceUnit);
+        this.entityManager = entityManager;
     }
 
-    protected final EntityManager getEntityManager()
+    protected String getTableName()
     {
-        return entitymanagerFactory.createEntityManager();
-    }
-
-
-    protected String getSchemaName()
-    {
+        if(entityClass.isAnnotationPresent(Table.class))
+        {
+            Table table = entityClass.getAnnotation(Table.class);
+            if(!table.name().isEmpty())
+                return table.name();
+        }
         return entityClass.getSimpleName();
     }
-
 
     public void insertEntity(T entity)
     {
         logger.info(String.format("insert of %s", entityClass.getSimpleName()));
-        if (!entity.isValid())
-        {
-            logger.log(Level.SEVERE, "Attempting to insert an invalid entity");
-            throw new IllegalArgumentException("Entity is not valid");
-        }
-        if (!entity.isNew())
-        {
-            logger.log(Level.SEVERE, "Entity is not new");
-            throw new IllegalArgumentException("Entity is not new");
-        }
-        EntityManager em = getEntityManager();
 
         try
         {
-            em.getTransaction().begin();
-            em.persist(entity);
-            em.getTransaction().commit();
+            entityManager.getTransaction().begin();
+            entityManager.persist(entity);
+            entityManager.getTransaction().commit();
             logger.info("success");
         }
         catch (Exception e)
         {
             logger.log(Level.SEVERE, "Exception: %s", e.getMessage());
-            em.getTransaction().rollback();
+            entityManager.getTransaction().rollback();
             throw new RuntimeException(e);
-        } finally
-        {
-            em.close();
         }
     }
 
@@ -82,18 +65,16 @@ public class JPAEntityController<T extends BaseEntity> implements EntityControll
         logger.info(String.format("id %s", id));
         if (id == null)
             return Optional.empty();
-        EntityManager em = getEntityManager();
+
         T entity = null;
         try
         {
-            entity = em.find(entityClass, id);
+            entity = entityManager.find(entityClass, id);
             logger.info("entity fetched");
-        } catch (Exception e)
+        }
+        catch (Exception e)
         {
             logger.log(Level.SEVERE, "exception %s", e.getMessage());
-        } finally
-        {
-            em.close();
         }
 
         return Optional.ofNullable(entity);
@@ -102,13 +83,12 @@ public class JPAEntityController<T extends BaseEntity> implements EntityControll
 
     public List<T> getAllEntities()
     {
-        String tableName = getSchemaName();
-        EntityManager em = getEntityManager();
+        String tableName = getTableName();
 
         try
         {
             List<T> entities = new ArrayList<>(
-                    em.createQuery("SELECT e FROM " + tableName + " e", entityClass).getResultList()
+                    entityManager.createQuery("SELECT e FROM " + tableName + " e", entityClass).getResultList()
             );
             logger.info(String.format("num entities %s", entities.size()));
             return entities;
@@ -117,74 +97,44 @@ public class JPAEntityController<T extends BaseEntity> implements EntityControll
         {
             throw new RuntimeException(e);
         }
-        finally
-        {
-            em.close();
-        }
     }
 
 
     @Override
     public void updateEntity(T entity)
     {
-        if (entity.isNew())
-        {
-            logger.log(Level.SEVERE, "Attempting to update an entity but is new");
-            throw new IllegalArgumentException("Entity is new");
-        }
-        if (!entity.isValid())
-        {
-            logger.log(Level.SEVERE, "Attempting to update an invalid entity");
-            throw new IllegalArgumentException("Entity is not valid");
-        }
-
-        EntityManager em = getEntityManager();
-
         try
         {
-            em.getTransaction().begin();
-
-            em.merge(entity);
-
-            em.getTransaction().commit();
-        } catch (Exception e)
+            entityManager.getTransaction().begin();
+            entityManager.merge(entity);
+            entityManager.getTransaction().commit();
+        }
+        catch (Exception e)
         {
             logger.log(Level.SEVERE, "exception while updating an entity: %s", e.getMessage());
-            em.getTransaction().rollback();
+            entityManager.getTransaction().rollback();
             throw new RuntimeException(e);
-        } finally
-        {
-            em.close();
-
         }
     }
 
 
     public void removeEntity(T entity)
     {
-        if (entity.isNew())
-        {
-            logger.log(Level.SEVERE, "Attempting to remove an invalid entity");
-            throw new IllegalArgumentException("Entity is new");
-        }
-        EntityManager em = getEntityManager();
+
         try
         {
-            em.getTransaction().begin();
-            if (!em.contains(entity))
-                entity = em.merge(entity); // For detached entities
-            em.remove(entity);
+            entityManager.getTransaction().begin();
+            if (!entityManager.contains(entity))
+                entity = entityManager.merge(entity); // For detached entities
+            entityManager.remove(entity);
 
-            em.getTransaction().commit();
-
-        } catch (Exception e)
+            entityManager.getTransaction().commit();
+        }
+        catch (Exception e)
         {
-            em.getTransaction().rollback();
+            entityManager.getTransaction().rollback();
             logger.log(Level.SEVERE, "exception %s", e.getMessage());
             throw new RuntimeException(e);
-        } finally
-        {
-            em.close();
         }
     }
 
@@ -201,23 +151,18 @@ public class JPAEntityController<T extends BaseEntity> implements EntityControll
     {
         logger.info("Transaction begin");
 
-        EntityManager em = getEntityManager();
-
         try
         {
-            em.getTransaction().begin();
-            S result = function.apply(em);
-            em.getTransaction().commit();
+            entityManager.getTransaction().begin();
+            S result = function.apply(entityManager);
+            entityManager.getTransaction().commit();
             logger.info("transaction success");
             return result;
         } catch (Exception e)
         {
             logger.log(Level.SEVERE, "Exception: %s", e.getMessage());
-            em.getTransaction().rollback();
+            entityManager.getTransaction().rollback();
             throw new RuntimeException(e);
-        } finally
-        {
-            em.close();
         }
     }
 

@@ -2,69 +2,85 @@ package io.github.jpamodel;
 
 import javax.persistence.*;
 import java.io.Serializable;
-import java.util.Comparator;
+import java.time.LocalDateTime;
 import java.util.Objects;
-
 
 @MappedSuperclass
 public class BaseEntity implements Serializable, Comparable<BaseEntity>
 {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Integer id;
+    private Long id;
 
-    @Column(name = "created_at", nullable = false)
-    long createdAtEpochMillis;
 
-    @Column(name = "updated_at", nullable = false)
-    long updatedAtEpochMillis;
+    @Column(name = "created_on", updatable = false)
+    private String createdOn;
+
+    @Column(name = "updated_on")
+    private String lastUpdatedOn;
+
 
     @PrePersist
-    private void onCreate()
+    public void prePersist()
     {
-        createdAtEpochMillis = System.currentTimeMillis();
-        updatedAtEpochMillis = createdAtEpochMillis;
+        createdOn = LocalDateTime.now().toString();
+        lastUpdatedOn = createdOn;
     }
 
     @PreUpdate
-    private void onUpdate()
+    public void preUpdate()
     {
-        updatedAtEpochMillis = System.currentTimeMillis();
+        lastUpdatedOn = LocalDateTime.now().toString();
     }
 
-    public Integer getId()
+
+    public Long getId()
     {
         return id;
     }
 
-    public void setId(Integer id)
+
+    public void setId(Long id)
     {
         this.id = id;
     }
 
+
+    public LocalDateTime getLastUpdatedOn()
+    {
+        if (Objects.isNull(lastUpdatedOn))
+            return null;
+        return LocalDateTime.parse(lastUpdatedOn);
+    }
+
+
+    public LocalDateTime getCreatedOn()
+    {
+        if (Objects.isNull(createdOn))
+            return null;
+        return LocalDateTime.parse(createdOn);
+    }
+
+
     public boolean isNew()
     {
-        return this.id == null;
+        return this.id == null || this.id < 0;
     }
+
 
     public boolean isValid()
     {
         return true;
     }
 
-    @Override
-    public String toString()
-    {
-        return String.format("Entity[class=%s, id=%s]", getClass().getSimpleName(), id);
-    }
 
     @Override
     public boolean equals(Object obj)
     {
-        if (!getClass().equals(obj.getClass()))
+        if(!getClass().equals(obj.getClass()))
             return false;
         BaseEntity other = (BaseEntity) obj;
-        if (id == null || other.id == null)
+        if(id == null || other.id == null)
             return false;
         return Objects.equals(id, other.id);
     }
@@ -72,15 +88,20 @@ public class BaseEntity implements Serializable, Comparable<BaseEntity>
 
     public int hashCode()
     {
-        return Objects.hash(getClass(), isNew() ? -1 : id);
+        return Objects.hash(getClass(), isNew()? -1 : id);
     }
 
-
-    private static final Comparator<BaseEntity> comparator = Comparator.nullsLast(Comparator.comparingLong(BaseEntity::getId));
 
     @Override
     public int compareTo(BaseEntity o)
     {
-        return Objects.compare(this, o, comparator);
+        if (createdOn == null && o.createdOn == null)
+            return 0;
+        else if (createdOn == null)
+            return -1;
+        else if (o.createdOn == null)
+            return 1;
+        else
+            return getCreatedOn().compareTo(o.getCreatedOn());
     }
 }

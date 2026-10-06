@@ -10,7 +10,7 @@ import java.util.stream.Stream;
  * Controller to manage a collection of entities
  * @param <T> type of entities
  */
-public interface EntityController<T extends BaseEntity>
+public interface EntityController<T>
 {
     /**
      * Gets all entities
@@ -49,20 +49,6 @@ public interface EntityController<T extends BaseEntity>
     void removeEntity(T entity);
 
     /**
-     * Puts an entity, namely it inserts it if it is new, or updates it if it is not new.
-     *
-     * @param entity entity to put
-     * @return whether the operation was successful
-     */
-    default void putEntity(T entity)
-    {
-        if (entity.isNew())
-            insertEntity(entity);
-        else
-            updateEntity(entity);
-    }
-
-    /**
      * Gets the entity with the given id or throws an exception if not found.
      *
      * @param id entity id
@@ -72,34 +58,5 @@ public interface EntityController<T extends BaseEntity>
     default T getEntity(Object id)
     {
         return findEntity(id).orElseThrow(() -> new IllegalArgumentException(String.format("Entity with id %s not found", id.toString())));
-    }
-
-    
-    /**
-     * Decorates this controller with a decorator.
-     *
-     * @param decorator decorator class to decorate the current controller with. This class must have a constructor with
-     *                  first argument being an it.unibo.msrehab.model.EntityController<T>. The current instance will be passed as the first argument.
-     * @param args      other arguments for the constructor
-     * @param <C>       class of the decorator
-     * @return
-     */
-    default <C extends EntityController<T>> C decorated(Class<C> decorator, Object... args)
-    {
-        try
-        {
-            Class<?>[] argsClasses = Stream.concat(
-                            Stream.of(EntityController.class),
-                            Stream.of(args).map(Object::getClass)
-                    )
-                    .toArray(Class<?>[]::new);
-            Constructor<C> constructor = decorator.getConstructor(argsClasses);
-
-            Object[] argsWithController = Stream.concat(Stream.of(this), Stream.of(args)).toArray();
-            return constructor.newInstance(argsWithController);
-        } catch (Exception e)
-        {
-            throw new RuntimeException(e);
-        }
     }
 }
